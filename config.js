@@ -1,2 +1,2 @@
-// AmbientBot API Configuration — auto-updated by run-ambientbot.sh
-const API_BASE = 'https://making-blue-desperate-thirty.trycloudflare.com';
+// API Configuration — point to your AmbientBot backend
+const API_BASE = 'https://moderators-widely-contributor-void.trycloudflare.com';
