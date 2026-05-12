@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AmbientBot — Consultas Centinela</title>
+<script src="/config.js"></script>
+<style>
+:root{--primary:#1a73e8;--bg:#f8f9fa;--card:#fff;--text:#202124;--border:#dadce0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;font-size:15px}
+.header{background:linear-gradient(135deg,#1a73e8,#0d47a1);color:#fff;padding:20px;text-align:center}
+.header h1{font-size:1.5em;margin-bottom:4px}
+.header p{opacity:.85;font-size:.9em}
+.header .badge{display:inline-block;background:rgba(255,255,255,.15);border-radius:4px;padding:2px 8px;font-size:.75em;margin-top:6px;vertical-align:middle}
+.container{max-width:900px;margin:0 auto;padding:20px 16px}
+.search-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.search-box textarea{width:100%;min-height:60px;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:15px;font-family:inherit;resize:vertical}
+.search-box textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 2px rgba(26,115,232,.2)}
+.btn-row{display:flex;gap:8px;margin-top:12px;align-items:center;flex-wrap:wrap}
+.btn{padding:10px 24px;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:#1557b0}
+.btn-primary:disabled{opacity:.6}
+.btn-secondary{background:#e8eaed;color:#3c4043}
+.btn-secondary:hover{background:#d2d5d9}
+.status{font-size:13px;color:#5f6368;margin-left:12px}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid #e8eaed;border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.result{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08);white-space:pre-wrap;font-size:14px;line-height:1.6;display:none}
+.result .meta{font-size:12px;color:#5f6368;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.result .sources{background:#f8f9fa;border-radius:8px;padding:12px;margin-top:16px;font-size:13px;white-space:normal}
+.result .sources .doc{padding:4px 0 4px 8px;border-left:3px solid var(--primary);margin:6px 0;font-size:12px}
+.doc-title{font-weight:600;color:var(--primary)}
+.doc-meta{color:#5f6368;font-size:11px}
+.error{color:#d93025;background:#fce8e6;border-radius:8px;padding:12px;margin-top:12px;font-size:14px;display:none}
+.examples{margin-top:20px}
+.examples h3{font-size:14px;color:#5f6368;margin-bottom:8px}
+.examples .chips{display:flex;flex-wrap:wrap;gap:8px}
+.examples .chip{background:#e8f0fe;color:var(--primary);padding:6px 14px;border-radius:16px;font-size:13px;cursor:pointer;border:1px solid transparent}
+.examples .chip:hover{background:#d2e3fc;border-color:var(--primary)}
+.disclaimer-box{background:#fef7e0;border:1px solid #f9d849;border-radius:8px;padding:10px 14px;font-size:12px;color:#5f6368;margin-bottom:16px;text-align:center}
+.connection-status{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:4px 10px;border-radius:12px;margin-bottom:12px}
+.connection-status.online{background:#e6f4ea;color:#137333}
+.connection-status.offline{background:#fce8e6;color:#c5221f}
+@media(max-width:600px){.header{padding:16px}.container{padding:12px}}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>AmbientBot</h1>
+<p>Consultas de exigencias ambientales — Minera Centinela</p>
+<span class="badge">CDN Edge</span>
+</div>
+<div class="container">
+<div class="disclaimer-box">Respuestas generadas por IA. Verifique con las fuentes originales antes de actuar.</div>
+<div id="conn-status" class="connection-status">Verificando conexión...</div>
+<div class="search-box">
+<textarea id="query" placeholder='Ej: Compromisos de monitoreo de calidad de aire para Centinela' rows="3"></textarea>
+<div class="btn-row">
+<button class="btn btn-primary" id="btn-ask" onclick="ask()">Consultar</button>
+<button class="btn btn-secondary" onclick="clearResult()">Limpiar</button>
+<span class="status" id="status"></span>
+</div>
+<div class="error" id="error"></div>
+</div>
+<div class="result" id="result"></div>
+<div class="examples">
+<h3>Ejemplos</h3>
+<div class="chips">
+<span class="chip" onclick="setQuery(this)">Compromisos de monitoreo de calidad de aire para Minera Centinela</span>
+<span class="chip" onclick="setQuery(this)">Plazos de reporte de monitoreo ambiental</span>
+<span class="chip" onclick="setQuery(this)">Que dice la RCA Esperanza sobre MP10</span>
+<span class="chip" onclick="setQuery(this)">Compromisos de monitoreo de aguas subterraneas</span>
+</div>
+</div>
+</div>
+<script>
+function api(path){return API_BASE + path}
+
+// Connection check on load
+async function checkConnection(){
+  var el=document.getElementById('conn-status');
+  try{
+    var resp=await fetch(api('/api/status'));
+    var d=await resp.json();
+    el.className='connection-status online';
+    el.innerHTML='<span>&#9679;</span> Backend conectado ('+d.chunks.toLocaleString()+' chunks)';
+  }catch(e){
+    el.className='connection-status offline';
+    el.innerHTML='<span>&#9679;</span> Backend no disponible';
+  }
+}
+checkConnection();
+
+function setQuery(e){document.getElementById('query').value=e.textContent;document.getElementById('query').focus()}
+function clearResult(){document.getElementById('result').style.display='none';document.getElementById('error').style.display='none';document.getElementById('query').value=''}
+async function ask(){
+var q=document.getElementById('query').value.trim();if(!q)return;
+var btn=document.getElementById('btn-ask');var st=document.getElementById('status');var er=document.getElementById('error');var rs=document.getElementById('result');
+btn.disabled=true;st.innerHTML='<span class="spinner"></span>Consultando...';er.style.display='none';rs.style.display='none';
+try{
+var resp=await fetch(api('/api/ask'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})});
+if(!resp.ok){var ej=await resp.json();throw new Error(ej.error||'Error')}
+var d=await resp.json();
+var html='<div class="meta">Tiempo: '+d.tiempo_ms+'ms | Documentos: '+d.fuentes.length+(d.company?' | Filtro: '+d.company.toUpperCase():'')+'</div>';
+var txt=d.respuesta.replace(/\n/g,'<br>');
+var idx=txt.indexOf('Documentos consultados:');
+if(idx>0){
+var srcHtml=txt.substring(idx);
+txt=txt.substring(0,idx);
+srcDiv='<div class="sources"><strong>Documentos consultados:</strong>';
+var lines=srcHtml.split('<br>');
+for(var k=0;k<lines.length;k++){var l=lines[k].replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');if(l.match(/^\s*[\.\*]/)||l.match(/Proyecto:/)){srcDiv+='<div class="doc">'+l.replace(/^[\s\.\*]+/,'').trim()+'</div>'}}
+srcDiv+='</div>';
+}
+rs.innerHTML=html+'<div>'+txt+'</div>'+srcDiv;rs.style.display='block';st.textContent='Listo';
+}catch(err){er.textContent='Error: '+err.message;er.style.display='block';st.textContent='Error'}finally{btn.disabled=false}
+}
+</script>
+</body>
+</html>

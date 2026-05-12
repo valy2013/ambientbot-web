@@ -1,0 +1,6 @@
+# Cloudflare Pages Redirects
+# API calls are proxied through the tunnel — config.js has the API_BASE
+# This file ensures clean URLs work
+
+/index.html  /
+/*  /index.html  200
