@@ -1,3 +1,2 @@
-// AmbientBot API Configuration
-// Actualizado automáticamente por run-ambientbot.sh
-const API_BASE = 'http://localhost:8766';
+// AmbientBot API Configuration — auto-updated by run-ambientbot.sh
+const API_BASE = 'https://comics-weblog-shorter-gage.trycloudflare.com';
